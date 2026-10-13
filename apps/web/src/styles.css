@@ -65,6 +65,8 @@ h1 em { font-family: Georgia, serif; font-weight: 500; color: var(--green); }
 @keyframes spin { to { transform: rotate(360deg); } }
 .workspace-section { border-top: 1px solid var(--line); padding: 34px 0 40px; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 19px; }
+.review-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
+.disabled-control { opacity: .55; pointer-events: none; }
 .section-heading h2 { margin: 0; font-size: 26px; letter-spacing: -.04em; }
 .section-heading .eyebrow { margin-bottom: 8px; }
 .section-intro { margin: 0 0 17px; color: var(--muted); font-size: 12px; line-height: 1.6; }
@@ -154,7 +156,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .summary-card { min-height: 190px; }
   .section-heading { align-items: flex-end; }
   .section-heading h2 { font-size: 22px; }
-  .section-heading > .button { max-width: 150px; text-align: center; }
+  .review-actions { max-width: 240px; }
+  .review-actions .button { text-align: center; }
   .settings-grid { grid-template-columns: 1fr; }
   .setting-card { min-height: 105px; }
   .preview-layout { grid-template-columns: 1fr; gap: 24px; }
@@ -179,5 +182,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .custom-back-row .button { width: 100%; }
   .site-footer { flex-direction: column; gap: 5px; }
   .section-heading { gap: 10px; }
-  .section-heading > .button { padding: 8px 9px; font-size: 9px; }
+  .review-actions .button { padding: 8px 9px; font-size: 9px; }
 }

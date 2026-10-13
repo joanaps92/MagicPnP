@@ -60,6 +60,8 @@ La suite incluye parser, slots, identificadores repetidos, huecos, conflictos, D
 
 El parser se comprobó también con una exportación auténtica de MPC Fill de 100 posiciones: importó los 100 anversos, el reverso común y un reverso específico, sin avisos. El XML original no se incluye en el repositorio; el test usa datos redactados y conserva su estructura y cantidades.
 
+Después de importar el XML, puedes elegir la carpeta que contiene las imágenes descargadas con MPC Autofill. MagicPnP relaciona cada archivo por ID de Drive o por nombre de origen y sube las coincidencias al proyecto temporal. La carpeta se selecciona desde el navegador; si MagicPnP está desplegado en un servidor remoto, las imágenes coincidentes se envían a ese servidor para crear el PDF.
+
 ## Perfil de impresión
 
 El producto general de [barajas de Soriano](https://copisteriasoriano.com/imprimir/18637-baraja-de-cartas.html) pide A4 con montaje de nueve piezas, recomienda corte de 63 × 88 mm y al menos 2 mm de sangrado. El perfil usa 3 mm por defecto: cada marco ocupa 69 × 94 mm, centrado matemáticamente en la página A4 sin separación añadida entre cartas. Las marcas de corte se dibujan fuera del rectángulo de corte.

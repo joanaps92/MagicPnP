@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
-import { buildPagePlan, type ImportProject, type PrintSettings } from '@magicpnp/core';
+import { buildPagePlan, matchLocalAssetFiles, type ImportProject, type PrintSettings } from '@magicpnp/core';
 
 interface ProjectView {
   id: string;
@@ -75,8 +75,14 @@ interface ApiError { error?: string }
         <section class="workspace-section">
           <div class="section-heading">
             <div><p class="eyebrow">01 · REVISIÓN</p><h2>Orden y artes</h2></div>
-            @if (downloading()) { <button class="button secondary" (click)="cancelDownloads()">Cancelar descargas</button> }
-            @else { <button class="button secondary" (click)="downloadImages()" [disabled]="busy()">Intentar descargas disponibles</button> }
+            <div class="review-actions">
+              <label class="button secondary file-button" [class.disabled-control]="busy()">
+                Elegir carpeta de imágenes
+                <input type="file" webkitdirectory multiple accept="image/jpeg,image/png,image/webp" [disabled]="busy()" (change)="importImageFolder($event)">
+              </label>
+              @if (downloading()) { <button class="button secondary" (click)="cancelDownloads()">Cancelar descargas</button> }
+              @else { <button class="button secondary" (click)="downloadImages()" [disabled]="busy()">Intentar descargas de Drive</button> }
+            </div>
           </div>
           @if (active.imported.warnings.length) {
             <div class="warning-box">
@@ -84,7 +90,7 @@ interface ApiError { error?: string }
               <ul>@for (warning of active.imported.warnings; track $index) { <li>{{ warning }}</li> }</ul>
             </div>
           }
-          <p class="section-intro">La numeración conserva el slot del XML. Los huecos no se desplazan. Si un arte no se descarga, puedes sustituirlo con un archivo local.</p>
+          <p class="section-intro">La numeración conserva el slot del XML. Si ya bajaste el lote con MPC Autofill, elige la carpeta donde quedaron las imágenes: MagicPnP las asociará por ID o nombre y subirá solo las coincidentes a esta sesión.</p>
           <div class="card-list">
             @for (card of active.imported.cards; track card.slotIndex) {
               <article class="card-row">
@@ -276,6 +282,56 @@ export class AppComponent {
         : data.failed ? `${data.downloaded ?? 0} imágenes descargadas; ${data.failed} necesitan revisión o sustitución manual.` : `${data.downloaded ?? 0} imágenes descargadas.`);
     });
     this.downloading.set(false);
+  }
+
+  async importImageFolder(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const files = Array.from(input.files ?? []).filter((file) => /\.(?:jpe?g|png|webp)$/i.test(file.name));
+    input.value = '';
+    const active = this.project();
+    if (!active || !files.length) return;
+
+    const matches = matchLocalAssetFiles(active.imported.assets, files.map((file) => file.name));
+    if (!matches.matches.length) {
+      this.error.set('No encontré imágenes coincidentes por ID de Drive o nombre de archivo.');
+      return;
+    }
+
+    await this.runBusy(`Preparando ${matches.matches.length} imágenes locales…`, async () => {
+      let completed = 0;
+      let uploaded = 0;
+      const failed: string[] = [];
+      const batchSize = 3;
+      for (let offset = 0; offset < matches.matches.length; offset += batchSize) {
+        const batch = matches.matches.slice(offset, offset + batchSize);
+        await Promise.all(batch.map(async ({ assetKey, fileIndex }) => {
+          const file = files[fileIndex]!;
+          try {
+            const form = new FormData();
+            form.append('file', file);
+            await this.projectRequest<ApiError & { key?: string }>(`/assets/${encodeURIComponent(assetKey)}/replace`, { method: 'POST', body: form });
+            this.invalidatePreview(assetKey);
+            uploaded += 1;
+          } catch (error) {
+            const name = active.imported.assets[assetKey]?.sourceName ?? assetKey;
+            failed.push(`${name}: ${error instanceof Error ? error.message : 'error de carga'}`);
+          } finally {
+            completed += 1;
+            this.busyLabel.set(`Subiendo imágenes locales · ${completed}/${matches.matches.length}…`);
+          }
+        }));
+      }
+
+      await this.refreshProject();
+      const problemCount = matches.missingAssetKeys.length + matches.ambiguousAssetKeys.length + failed.length;
+      const details = [
+        matches.missingAssetKeys.length ? `${matches.missingAssetKeys.length} no encontradas` : '',
+        matches.ambiguousAssetKeys.length ? `${matches.ambiguousAssetKeys.length} con nombre ambiguo` : '',
+        failed.length ? `${failed.length} rechazadas por el servidor` : '',
+      ].filter(Boolean).join('; ');
+      this.notice.set(`${uploaded} imágenes incorporadas${problemCount ? `; ${details}` : ''}.`);
+      if (failed.length) this.error.set(failed.slice(0, 3).join(' · '));
+    });
   }
 
   async cancelDownloads() {
