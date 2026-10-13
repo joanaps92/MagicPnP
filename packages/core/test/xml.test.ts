@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildPagePlan } from '../src/layout.js';
 import { parseMpcFillXml, XmlImportError } from '../src/xml.js';
 
 const sample = (fronts: string, extras = '') => `<order><details><quantity>3</quantity></details><fronts>${fronts}</fronts>${extras}</order>`;
@@ -9,6 +10,27 @@ describe('parseMpcFillXml', () => {
     expect(project.cards).toHaveLength(1);
     expect(project.cards[0]).toMatchObject({ slotIndex: 0, name: 'Una carta.png', frontAssetKey: 'drive:DRIVE_FILE_ID_AA', backAssetKey: 'drive:DRIVE_FILE_BACK1' });
     expect(project.warnings).toContain('El pedido declara 3 unidades, pero los slots abarcan 1 posiciones físicas. Se conserva el orden de slots.');
+  });
+
+  it('imports a redacted MPC Fill export with 100 slots and both back forms', () => {
+    const fronts = Array.from({ length: 100 }, (_, slotIndex) => {
+      const referenceIndex = slotIndex < 11 ? 0 : slotIndex - 10;
+      const id = `DRIVE_FRONT${String(referenceIndex).padStart(6, '0')}`;
+      return `<card><id>${id}</id><slots>${slotIndex}</slots><name>Card ${slotIndex + 1}.jpg</name><query>card ${slotIndex + 1}</query></card>`;
+    }).join('');
+    const xml = `<order><details><quantity>100</quantity><bracket>108</bracket><stock>Standard Smooth</stock><foil>false</foil></details><fronts>${fronts}</fronts><backs><card><id>DRIVE_BACK_SPECIFIC01</id><slots>0</slots><name>Special back.png</name></card></backs><cardback>DRIVE_COMMONBACK01</cardback></order>`;
+    const project = parseMpcFillXml(xml);
+
+    expect(project.cards).toHaveLength(100);
+    expect(project.declaredQuantity).toBe(100);
+    expect(project.cards[0]?.slotIndex).toBe(0);
+    expect(project.cards[99]?.slotIndex).toBe(99);
+    expect(project.cards.filter((card) => !card.frontAssetKey)).toHaveLength(0);
+    expect(project.cards[0]?.isDoubleFacedOrCustomBack).toBe(true);
+    expect(project.cards[1]?.isDoubleFacedOrCustomBack).toBe(false);
+    expect(Object.keys(project.assets)).toHaveLength(92);
+    expect(project.warnings).toEqual([]);
+    expect(buildPagePlan(project.cards, 'horizontal')).toHaveLength(24);
   });
 
   it('expands grouped slots, retains gaps and sorts by physical slot', () => {

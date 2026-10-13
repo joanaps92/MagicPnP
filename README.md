@@ -58,7 +58,7 @@ npm run build
 
 La suite incluye parser, slots, identificadores repetidos, huecos, conflictos, DTD, orden de reversos, geometría A4, número de páginas, espejo de posiciones, sustitución de imágenes, bloqueo/confirmación de baja resolución y lectura del tamaño físico del PDF generado.
 
-Los XML de pruebas son **sintéticos** y se basan en la forma esquemática de la especificación; no representan una exportación auténtica de MPC Fill.
+El parser se comprobó también con una exportación auténtica de MPC Fill de 100 posiciones: importó los 100 anversos, el reverso común y un reverso específico, sin avisos. El XML original no se incluye en el repositorio; el test usa datos redactados y conserva su estructura y cantidades.
 
 ## Perfil de impresión
 
@@ -98,7 +98,6 @@ La interfaz queda en `http://localhost:8080` (`WEB_PORT` permite cambiarlo). `GO
 
 ## Pendiente antes de producción de imprenta
 
-1. Probar fixtures de parser contra un XML auténtico y representativo de MPC Fill.
-2. Verificar las descargas de Drive con referencias reales que sean accesibles y confirmar permisos/cuotas.
-3. Acordar con Soriano el producto general, el orden dúplex y el tratamiento del sangrado.
-4. Hacer una impresión física numerada para confirmar la alineación del reverso.
+1. Verificar las descargas de Drive con referencias reales que sean accesibles y confirmar permisos/cuotas.
+2. Acordar con Soriano el producto general, el orden dúplex y el tratamiento del sangrado.
+3. Hacer una impresión física numerada para confirmar la alineación del reverso.
