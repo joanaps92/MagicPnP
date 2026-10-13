@@ -11,9 +11,20 @@ import { buildPagePlan, cardRects, mmToPoints, parseMpcFillXml, type AssetRefere
 
 const MAX_XML_BYTES = 2 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
-const MAX_PROJECT_IMAGE_BYTES = 200 * 1024 * 1024;
+const MEBIBYTE = 1024 * 1024;
+function configuredMebibytes(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback * MEBIBYTE;
+  if (!/^\d+$/.test(raw)) throw new Error(`${name} debe ser un número entero de MiB.`);
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 1 || value > 16_384) {
+    throw new Error(`${name} debe estar entre 1 y 16384 MiB.`);
+  }
+  return value * MEBIBYTE;
+}
+const MAX_PROJECT_IMAGE_BYTES = configuredMebibytes('MAX_PROJECT_IMAGE_MIB', 1024);
 const MAX_IMAGE_PIXELS = 25_000_000;
-const MAX_TOTAL_IMAGE_BYTES = 500 * 1024 * 1024;
+const MAX_TOTAL_IMAGE_BYTES = configuredMebibytes('MAX_TOTAL_IMAGE_MIB', 2048);
 const MAX_EXPORT_BYTES = 250 * 1024 * 1024;
 const MAX_TOTAL_EXPORT_BYTES = 500 * 1024 * 1024;
 const MAX_CARDS_PER_EXPORT = 1_000;
@@ -224,9 +235,9 @@ async function fetchDriveImage(asset: AssetReference, apiKey: string, parentSign
 function ensureImageCapacity(project: StoredProject, key: string, newSize: number) {
   const replacingSize = project.images.get(key)?.byteLength ?? 0;
   const projectSize = [...project.images.values()].reduce((sum, image) => sum + image.byteLength, 0) - replacingSize + newSize;
-  if (projectSize > MAX_PROJECT_IMAGE_BYTES) throw new Error('El total de imágenes del proyecto supera 200 MiB.');
+  if (projectSize > MAX_PROJECT_IMAGE_BYTES) throw new Error(`El total de imágenes del proyecto supera ${Math.floor(MAX_PROJECT_IMAGE_BYTES / MEBIBYTE)} MiB.`);
   const total = [...projects.values()].reduce((sum, candidate) => sum + [...candidate.images.values()].reduce((inner, image) => inner + image.byteLength, 0), 0) - replacingSize + newSize;
-  if (total > MAX_TOTAL_IMAGE_BYTES) throw new Error('El almacenamiento temporal total está ocupado. Inténtalo más tarde.');
+  if (total > MAX_TOTAL_IMAGE_BYTES) throw new Error(`El almacenamiento temporal supera ${Math.floor(MAX_TOTAL_IMAGE_BYTES / MEBIBYTE)} MiB.`);
 }
 
 function applyImage(project: StoredProject, key: string, image: StoredImage) {

@@ -11,6 +11,8 @@ interface ProjectView {
 }
 
 interface ApiError { error?: string }
+interface LocalImageOption { fileIndex: number; label: string; sizeMiB: number }
+interface ManualImageAssignment { assetKey: string; assetName: string; fileIndex: number | null; error?: string }
 
 @Component({
   selector: 'app-root',
@@ -91,6 +93,35 @@ interface ApiError { error?: string }
             </div>
           }
           <p class="section-intro">La numeración conserva el slot del XML. Si ya bajaste el lote con MPC Autofill, elige la carpeta donde quedaron las imágenes: MagicPnP las asociará por ID o nombre y subirá solo las coincidentes a esta sesión.</p>
+          @if (manualAssignments().length) {
+            <section class="manual-match-panel" aria-label="Asignación manual de imágenes ambiguas">
+              <div class="manual-match-heading">
+                <div><p class="eyebrow">ASIGNACIÓN MANUAL</p><h3>Resuelve las referencias ambiguas</h3></div>
+                <span>{{ selectedManualAssignmentCount() }} seleccionadas</span>
+              </div>
+              <p class="manual-match-help">Elige el archivo de la carpeta que corresponde a cada arte. Se subirá al proyecto al pulsar el botón.</p>
+              <div class="manual-match-list">
+                @for (assignment of manualAssignments(); track assignment.assetKey) {
+                  <div class="manual-match-item">
+                    <label class="manual-match-row">
+                      <span class="manual-match-asset"><strong>{{ assignment.assetName }}</strong><small>{{ assignment.assetKey }}</small></span>
+                      <select [value]="assignment.fileIndex ?? ''" (change)="selectManualFile(assignment.assetKey, $event)" [disabled]="busy()">
+                        <option value="">Elige el archivo de imagen…</option>
+                        @for (option of manualImageOptions(); track option.fileIndex) {
+                          <option [value]="option.fileIndex">{{ option.label }} · {{ option.sizeMiB | number:'1.1-1' }} MiB</option>
+                        }
+                      </select>
+                    </label>
+                    @if (assignment.error) { <small class="manual-match-error">{{ assignment.error }}</small> }
+                  </div>
+                }
+              </div>
+              <div class="manual-match-actions">
+                <span>{{ manualAssignments().length }} referencias todavía necesitan una imagen.</span>
+                <button class="button primary" (click)="uploadManualAssignments()" [disabled]="busy() || !selectedManualAssignmentCount()">Subir {{ selectedManualAssignmentCount() }} asignaciones</button>
+              </div>
+            </section>
+          }
           <div class="card-list">
             @for (card of active.imported.cards; track card.slotIndex) {
               <article class="card-row">
@@ -193,12 +224,15 @@ export class AppComponent {
   readonly busyLabel = signal('');
   readonly error = signal('');
   readonly notice = signal('');
+  readonly manualImageOptions = signal<LocalImageOption[]>([]);
+  readonly manualAssignments = signal<ManualImageAssignment[]>([]);
   readonly dragging = signal(false);
   readonly pageIndex = signal(0);
   readonly cutLines = signal(true);
   readonly allowLowResolution = signal(false);
   readonly exportInfo = signal<{ exportId: string; report: { pageCount: number } } | null>(null);
   private projectToken = '';
+  private pendingLocalImageFiles: File[] = [];
 
   readonly pagePlan = computed(() => {
     const active = this.project();
@@ -207,6 +241,7 @@ export class AppComponent {
   readonly pageCount = computed(() => this.pagePlan().length);
   readonly currentPage = computed(() => this.pagePlan()[this.pageIndex()] ?? null);
   readonly uniqueArtCount = computed(() => Object.keys(this.project()?.imported.assets ?? {}).length);
+  readonly selectedManualAssignmentCount = computed(() => this.manualAssignments().filter((assignment) => assignment.fileIndex !== null).length);
   readonly lowResolutionCount = computed(() => {
     const active = this.project();
     if (!active) return 0;
@@ -291,8 +326,22 @@ export class AppComponent {
     const active = this.project();
     if (!active || !files.length) return;
 
+    this.error.set('');
+    this.pendingLocalImageFiles = files;
+    this.manualImageOptions.set(files.map((file, fileIndex) => ({
+      fileIndex,
+      label: file.webkitRelativePath || file.name,
+      sizeMiB: file.size / (1024 * 1024),
+    })));
     const matches = matchLocalAssetFiles(active.imported.assets, files.map((file) => file.name));
-    if (!matches.matches.length) {
+    this.manualAssignments.set(matches.ambiguousAssetKeys.map((assetKey) => ({
+      assetKey,
+      assetName: active.imported.assets[assetKey]?.sourceName ?? assetKey,
+      fileIndex: null,
+    })));
+    if (!matches.matches.length && !matches.ambiguousAssetKeys.length) {
+      this.pendingLocalImageFiles = [];
+      this.manualImageOptions.set([]);
       this.error.set('No encontré imágenes coincidentes por ID de Drive o nombre de archivo.');
       return;
     }
@@ -331,6 +380,58 @@ export class AppComponent {
       ].filter(Boolean).join('; ');
       this.notice.set(`${uploaded} imágenes incorporadas${problemCount ? `; ${details}` : ''}.`);
       if (failed.length) this.error.set(failed.slice(0, 3).join(' · '));
+    });
+  }
+
+  selectManualFile(assetKey: string, event: Event) {
+    const value = (event.target as HTMLSelectElement).value;
+    const fileIndex = value === '' ? null : Number(value);
+    if (fileIndex !== null && (!Number.isInteger(fileIndex) || !this.pendingLocalImageFiles[fileIndex])) return;
+    this.manualAssignments.update((assignments) => assignments.map((assignment) => assignment.assetKey === assetKey
+      ? { ...assignment, fileIndex, error: undefined }
+      : assignment));
+  }
+
+  async uploadManualAssignments() {
+    const selected = this.manualAssignments().filter((assignment) => assignment.fileIndex !== null);
+    if (!this.project() || !selected.length) return;
+
+    this.error.set('');
+    await this.runBusy(`Subiendo ${selected.length} asignaciones manuales…`, async () => {
+      const uploaded = new Set<string>();
+      const failed = new Map<string, string>();
+      const batchSize = 3;
+      for (let offset = 0; offset < selected.length; offset += batchSize) {
+        const batch = selected.slice(offset, offset + batchSize);
+        await Promise.all(batch.map(async (assignment) => {
+          const file = this.pendingLocalImageFiles[assignment.fileIndex!];
+          if (!file) {
+            failed.set(assignment.assetKey, 'El archivo seleccionado ya no está disponible; vuelve a elegirlo.');
+            return;
+          }
+          try {
+            const form = new FormData();
+            form.append('file', file);
+            await this.projectRequest<ApiError & { key?: string }>(`/assets/${encodeURIComponent(assignment.assetKey)}/replace`, { method: 'POST', body: form });
+            this.invalidatePreview(assignment.assetKey);
+            uploaded.add(assignment.assetKey);
+          } catch (error) {
+            failed.set(assignment.assetKey, error instanceof Error ? error.message : 'No se pudo subir el archivo.');
+          }
+        }));
+      }
+
+      await this.refreshProject();
+      this.manualAssignments.update((assignments) => assignments
+        .filter((assignment) => !uploaded.has(assignment.assetKey))
+        .map((assignment) => ({ ...assignment, error: failed.get(assignment.assetKey) })));
+      const remaining = this.manualAssignments().length;
+      if (!remaining) {
+        this.pendingLocalImageFiles = [];
+        this.manualImageOptions.set([]);
+      }
+      this.notice.set(`${uploaded.size} imágenes asignadas manualmente; quedan ${remaining} referencias ambiguas.`);
+      if (failed.size) this.error.set([...failed.values()].slice(0, 3).join(' · '));
     });
   }
 
@@ -429,6 +530,9 @@ export class AppComponent {
         this.previewUrls.set({});
         this.project.set(null);
         this.projectToken = '';
+        this.pendingLocalImageFiles = [];
+        this.manualImageOptions.set([]);
+        this.manualAssignments.set([]);
         this.pageIndex.set(0);
         this.exportInfo.set(null);
       }

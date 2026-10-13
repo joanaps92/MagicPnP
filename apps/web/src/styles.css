@@ -70,6 +70,21 @@ h1 em { font-family: Georgia, serif; font-weight: 500; color: var(--green); }
 .section-heading h2 { margin: 0; font-size: 26px; letter-spacing: -.04em; }
 .section-heading .eyebrow { margin-bottom: 8px; }
 .section-intro { margin: 0 0 17px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.manual-match-panel { margin: 18px 0; padding: 17px; border: 1px solid #d3ded3; border-radius: 10px; background: #f8fbf6; }
+.manual-match-heading, .manual-match-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.manual-match-heading .eyebrow { margin-bottom: 6px; }
+.manual-match-heading h3 { margin: 0; font-size: 17px; letter-spacing: -.025em; }
+.manual-match-heading > span, .manual-match-actions > span { color: var(--muted); font-size: 10px; }
+.manual-match-help { margin: 10px 0 14px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.manual-match-list { display: grid; gap: 9px; }
+.manual-match-item { display: grid; gap: 4px; }
+.manual-match-row { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.4fr); align-items: center; gap: 12px; padding: 9px 11px; border: 1px solid #e0e5dc; border-radius: 7px; background: white; }
+.manual-match-asset { min-width: 0; display: grid; gap: 4px; }
+.manual-match-asset strong { overflow: hidden; color: #39443e; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.manual-match-asset small { overflow: hidden; color: var(--muted); font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.manual-match-row select { min-width: 0; width: 100%; padding: 8px; border: 1px solid #d9ddd5; border-radius: 6px; background: white; color: #33413a; font-size: 10px; }
+.manual-match-error { padding: 0 11px; color: #843629; font-size: 10px; }
+.manual-match-actions { margin-top: 14px; }
 .warning-box { margin: 16px 0; padding: 14px 17px; border: 1px solid #ead7b3; border-radius: 9px; background: #fbf5e8; color: #684714; font-size: 11px; }
 .warning-box strong { font-size: 12px; }
 .warning-box ul { margin: 8px 0 0; padding-left: 19px; line-height: 1.65; }
@@ -158,6 +173,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .section-heading h2 { font-size: 22px; }
   .review-actions { max-width: 240px; }
   .review-actions .button { text-align: center; }
+  .manual-match-row { grid-template-columns: 1fr; }
+  .manual-match-actions { align-items: stretch; flex-direction: column; }
   .settings-grid { grid-template-columns: 1fr; }
   .setting-card { min-height: 105px; }
   .preview-layout { grid-template-columns: 1fr; gap: 24px; }

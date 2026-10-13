@@ -60,7 +60,7 @@ La suite incluye parser, slots, identificadores repetidos, huecos, conflictos, D
 
 El parser se comprobó también con una exportación auténtica de MPC Fill de 100 posiciones: importó los 100 anversos, el reverso común y un reverso específico, sin avisos. El XML original no se incluye en el repositorio; el test usa datos redactados y conserva su estructura y cantidades.
 
-Después de importar el XML, puedes elegir la carpeta que contiene las imágenes descargadas con MPC Autofill. MagicPnP relaciona cada archivo por ID de Drive o por nombre de origen y sube las coincidencias al proyecto temporal. La carpeta se selecciona desde el navegador; si MagicPnP está desplegado en un servidor remoto, las imágenes coincidentes se envían a ese servidor para crear el PDF.
+Después de importar el XML, puedes elegir la carpeta que contiene las imágenes descargadas con MPC Autofill. MagicPnP relaciona cada archivo por ID de Drive o por nombre de origen; las referencias ambiguas muestran un selector para asignar manualmente una imagen antes de subirla al proyecto temporal. La carpeta se selecciona desde el navegador; si MagicPnP está desplegado en un servidor remoto, las imágenes coincidentes se envían a ese servidor para crear el PDF.
 
 ## Perfil de impresión
 
@@ -85,7 +85,7 @@ El PDF mantiene el color RGB; no se etiqueta como CMYK. La imprenta puede conver
 - `GET /api/projects/:id/export/:exportId` y `/report` — descargar PDF y reporte.
 - `DELETE /api/projects/:id` — borrar el proyecto.
 
-El XML está limitado a 2 MiB y 10.000 slots; cada imagen, a 25 MiB y 25 megapíxeles; cada proyecto, a 200 MiB; todos los proyectos temporales, a 500 MiB; y cada PDF, a 1.000 posiciones y 250 MiB, con una exportación temporal activa por proyecto y 500 MiB para todos los PDF. Hay un máximo de 10 proyectos activos y 1.000 imágenes por trabajo de descarga. El servidor limita importaciones por IP. Las imágenes se analizan y decodifican; las peticiones remotas solo pueden dirigirse a Google Drive y hosts permitidos de Google, con redirecciones limitadas. No se aceptan URLs arbitrarias del XML.
+El XML está limitado a 2 MiB y 10.000 slots; cada imagen, a 25 MiB y 25 megapíxeles; cada proyecto, a 1 GiB de imágenes; todos los proyectos temporales, a 2 GiB; y cada PDF, a 1.000 posiciones y 250 MiB, con una exportación temporal activa por proyecto y 500 MiB para todos los PDF. `MAX_PROJECT_IMAGE_MIB` y `MAX_TOTAL_IMAGE_MIB` permiten ajustar los dos límites de imágenes en MiB (por defecto, 1024 y 2048). Como las imágenes se conservan en memoria, configura esos topes de acuerdo con la RAM disponible en el servidor. Hay un máximo de 10 proyectos activos y 1.000 imágenes por trabajo de descarga. El servidor limita importaciones por IP. Las imágenes se analizan y decodifican; las peticiones remotas solo pueden dirigirse a Google Drive y hosts permitidos de Google, con redirecciones limitadas. No se aceptan URLs arbitrarias del XML.
 
 El proxy de despliegue debe reemplazar `X-Forwarded-For` con la IP real antes de activar `TRUST_PROXY=1` en la API. `compose.yaml` ya define esa cabecera en Nginx.
 
