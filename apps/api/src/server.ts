@@ -289,16 +289,21 @@ async function extendEdgeForBleed(image: StoredImage, bleedMm: 0 | 2 | 3): Promi
     side(0, cropHeight - 1, 1, 1, borderX, borderY),
     side(cropWidth - 1, cropHeight - 1, 1, 1, borderX, borderY),
   ]);
-  const buffer = await sharp({ create: { width: expandedWidth, height: expandedHeight, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+  const canvas = sharp({ create: { width: expandedWidth, height: expandedHeight, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([
       { input: center, left: borderX, top: borderY },
       { input: left, left: 0, top: borderY }, { input: right, left: borderX + cropWidth, top: borderY },
       { input: top, left: borderX, top: 0 }, { input: bottom, left: borderX, top: borderY + cropHeight },
       { input: topLeft, left: 0, top: 0 }, { input: topRight, left: borderX + cropWidth, top: 0 },
       { input: bottomLeft, left: 0, top: borderY + cropHeight }, { input: bottomRight, left: borderX + cropWidth, top: borderY + cropHeight },
-    ]).png().toBuffer();
+    ]);
+  // Keep photographs compressed in the PDF instead of expanding every JPEG to a large PNG.
+  // Preserve PNG for artwork that may contain transparency or pixel-perfect edges.
+  const buffer = image.mime === 'image/jpeg'
+    ? await canvas.jpeg({ quality: 92, chromaSubsampling: '4:4:4' }).toBuffer()
+    : await canvas.png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
   if (buffer.byteLength > 100 * 1024 * 1024) throw new Error('La imagen preparada para sangrado superaría 100 MiB. Reduce su tamaño.');
-  return { buffer, mime: 'image/png', width: expandedWidth, height: expandedHeight, byteLength: buffer.byteLength, colorConverted: image.colorConverted };
+  return { buffer, mime: image.mime, width: expandedWidth, height: expandedHeight, byteLength: buffer.byteLength, colorConverted: image.colorConverted };
 }
 
 function drawCutMarks(page: Awaited<ReturnType<PDFDocument['addPage']>>, cut: { xMm: number; yMm: number; widthMm: number; heightMm: number }, gridIndex: number, bleedMm: number) {

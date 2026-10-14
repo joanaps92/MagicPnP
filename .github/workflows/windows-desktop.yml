@@ -29,11 +29,11 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Build Windows installer
-        run: npm run desktop:build:win
-      - name: Upload installer
+      - name: Build Windows portable app
+        run: npm run desktop:build:portable
+      - name: Upload portable executable
         uses: actions/upload-artifact@v4
         with:
-          name: MagicPnP-Windows-x64
+          name: MagicPnP-Windows-Portable-x64
           path: release/*.exe
           if-no-files-found: error

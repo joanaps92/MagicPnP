@@ -52,14 +52,14 @@ Para abrir la aplicación durante el desarrollo:
 npm run desktop:dev
 ```
 
-Para crear el instalador de Windows x64 desde Windows con Node.js 24:
+Para crear el ejecutable portable de Windows x64 desde Windows con Node.js 24:
 
 ```sh
 npm ci
-npm run desktop:build:win
+npm run desktop:build:portable
 ```
 
-El instalador `.exe` aparecerá en `release/`. Cada push que cambie el código de la app dispara el workflow **Windows desktop build** en GitHub Actions; el instalador queda disponible como artefacto descargable. También se puede ejecutar manualmente desde la pestaña Actions. El instalador no está firmado, por lo que Windows puede mostrar su aviso habitual de editor desconocido.
+El ejecutable portable `.exe` aparecerá en `release/`; se puede ejecutar desde cualquier carpeta sin instalar la aplicación. Cada push que cambie el código de la app dispara el workflow **Windows desktop build** en GitHub Actions; el ejecutable queda disponible como artefacto descargable. También se puede ejecutar manualmente desde la pestaña Actions. El ejecutable no está firmado, por lo que Windows puede mostrar su aviso habitual de editor desconocido.
 
 La descarga desde Drive es opcional. Para habilitar el intento de descarga de imágenes públicas, configura `GOOGLE_DRIVE_API_KEY` **solo en el servidor** antes de iniciar la API:
 

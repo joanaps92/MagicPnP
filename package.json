@@ -19,7 +19,7 @@
     "build": "npm run build:core && npm run typecheck && ng build",
     "build:web": "ng build",
     "desktop:dev": "npm run build && electron .",
-    "desktop:build:win": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "desktop:build:portable": "npm run build && electron-builder --win portable --x64 --publish never",
     "build:core": "tsc -p packages/core/tsconfig.json",
     "test": "vitest run",
     "typecheck": "tsc -p apps/api/tsconfig.json --noEmit && tsc -p packages/core/tsconfig.json --noEmit"
