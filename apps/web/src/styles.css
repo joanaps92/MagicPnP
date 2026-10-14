@@ -150,6 +150,18 @@ h1 em { font-family: Georgia, serif; font-weight: 500; color: var(--green); }
 .export-copy h2 { margin: 0 0 7px; font-family: Georgia, serif; font-size: 26px; font-weight: 500; }
 .export-copy > p:not(.eyebrow) { margin: 0; color: #58665d; font-size: 11px; line-height: 1.6; }
 .export-button { flex: 0 0 auto; min-width: 165px; padding: 13px 16px; }
+.export-button.exporting:disabled { opacity: 1; cursor: progress; background: var(--green-deep); }
+.export-button .spinner { border-color: #ffffff80; border-top-color: #fff; }
+.export-status { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; gap: 8px 10px; margin-top: 15px; padding: 12px 13px; border: 1px solid #b9cdbb; border-radius: 8px; background: #f7fbf5; color: var(--green-deep); }
+.export-status > .spinner { width: 17px; height: 17px; border-color: #b8cab8; border-top-color: var(--green); }
+.export-status-copy { display: grid; gap: 3px; }
+.export-status-copy strong { font-size: 11px; }
+.export-status-copy small { color: #52675a; font-size: 10px; line-height: 1.45; }
+.export-progress-track { grid-column: 1 / -1; height: 5px; overflow: hidden; border-radius: 99px; background: #dce7dc; }
+.export-progress-track span { display: block; width: 34%; height: 100%; border-radius: inherit; background: var(--green); animation: progress-sweep 1.35s ease-in-out infinite; }
+.export-error { display: grid; gap: 4px; margin-top: 12px; padding: 11px 13px; border-radius: 8px; background: #f7e8e4; color: #843629; font-size: 11px; line-height: 1.5; }
+.export-error strong { font-size: 11px; }
+@keyframes progress-sweep { from { transform: translateX(-110%); } to { transform: translateX(310%); } }
 .rights-note { margin-top: 9px; color: #65736a; font-size: 9px; }
 .confirm-low { display: flex; gap: 7px; align-items: center; margin-top: 11px; color: var(--amber); font-size: 10px; }
 .confirm-low input { accent-color: var(--green); }

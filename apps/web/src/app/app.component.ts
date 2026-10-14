@@ -69,7 +69,7 @@ interface ManualImageAssignment { assetKey: string; assetName: string; fileIndex
       @if (notice()) {
         <div class="notice success" role="status"><span aria-hidden="true">✓</span><span>{{ notice() }}</span><button aria-label="Cerrar aviso" (click)="notice.set('')">×</button></div>
       }
-      @if (busy()) {
+      @if (busy() && !isExporting()) {
         <div class="busy-line" role="status"><span class="spinner"></span>{{ busyLabel() }}</div>
       }
 
@@ -199,12 +199,25 @@ interface ManualImageAssignment { assetKey: string; assetName: string; fileIndex
           </div>
         </section>
 
-        <section class="export-panel">
+        <section class="export-panel" [attr.aria-busy]="isExporting()">
           <div class="export-copy"><p class="eyebrow">04 · EXPORTACIÓN</p><h2>Tu PDF está casi listo.</h2><p>Antes de imprimir, comprueba los pares de anverso/reverso con una hoja numerada y confirma los derechos de reproducción.</p>
             @if (lowResolutionCount() > 0) { <label class="confirm-low"><input type="checkbox" [checked]="allowLowResolution()" (change)="allowLowResolution.set(($any($event.target)).checked)"> Acepto exportar {{ lowResolutionCount() }} arte(s) por debajo de 300 ppp</label> }
             <div class="rights-note">La imprenta puede convertir el color. Este PDF no se etiqueta como CMYK.</div>
+            @if (isExporting()) {
+              <div class="export-status" role="status" aria-live="polite" aria-atomic="true">
+                <span class="spinner" aria-hidden="true"></span>
+                <div class="export-status-copy"><strong>Generando y validando el PDF</strong><small>Preparando {{ uniqueArtCount() }} artes y {{ pageCount() }} páginas. Puede tardar unos minutos; no cierres esta pestaña.</small></div>
+                <div class="export-progress-track" role="progressbar" aria-label="Generación del PDF en curso" aria-valuetext="Preparando los artes y las páginas"><span></span></div>
+              </div>
+            }
+            @if (exportError()) {
+              <div class="export-error" role="alert"><strong>No se pudo generar el PDF</strong><span>{{ exportError() }}</span></div>
+            }
           </div>
-          <button class="button primary export-button" (click)="exportPdf()" [disabled]="busy() || (lowResolutionCount() > 0 && !allowLowResolution())"><span aria-hidden="true">↓</span> Generar PDF A4</button>
+          <button class="button primary export-button" [class.exporting]="isExporting()" (click)="exportPdf()" [disabled]="busy() || (lowResolutionCount() > 0 && !allowLowResolution())" [attr.aria-busy]="isExporting()">
+            @if (isExporting()) { <span class="spinner" aria-hidden="true"></span> Generando PDF… }
+            @else { <span aria-hidden="true">↓</span> Generar PDF A4 }
+          </button>
         </section>
         @if (exportInfo(); as exported) {
           <section class="download-result" role="status"><div><strong>PDF generado · {{ exported.report.pageCount }} páginas</strong><p>Se creó un reporte de validación. La orientación dúplex sigue pendiente de prueba física.</p></div><div class="result-actions"><button class="button primary" (click)="downloadExport(exported.exportId)">Descargar PDF</button><button class="button secondary" (click)="downloadReport(exported.exportId)">Reporte JSON</button></div></section>
@@ -222,7 +235,9 @@ export class AppComponent {
   readonly busy = signal(false);
   readonly downloading = signal(false);
   readonly busyLabel = signal('');
+  readonly isExporting = computed(() => this.busyLabel() === 'Maquetando y validando el PDF…');
   readonly error = signal('');
+  readonly exportError = signal('');
   readonly notice = signal('');
   readonly manualImageOptions = signal<LocalImageOption[]>([]);
   readonly manualAssignments = signal<ManualImageAssignment[]>([]);
@@ -509,12 +524,18 @@ export class AppComponent {
   }
 
   async exportPdf() {
+    this.exportInfo.set(null);
+    this.exportError.set('');
     await this.runBusy('Maquetando y validando el PDF…', async () => {
       const data = await this.projectRequest<ApiError & { exportId?: string; report?: { pageCount: number } }>('/export', { method: 'POST', body: JSON.stringify({ allowLowResolution: this.allowLowResolution() }) });
       if (!data.exportId || !data.report) throw new Error(data.error ?? 'No se pudo generar el PDF.');
       this.exportInfo.set({ exportId: data.exportId, report: data.report });
       this.notice.set('PDF y reporte validados. La orientación dúplex aún necesita una prueba física.');
     });
+    if (this.error()) {
+      this.exportError.set(this.error());
+      this.error.set('');
+    }
   }
 
   async downloadExport(exportId: string) { await this.downloadArtifact(`/export/${exportId}`, 'magicpnp-soriano-a4.pdf'); }
@@ -581,7 +602,7 @@ export class AppComponent {
     if (!active) throw new Error('No hay un proyecto activo.');
     const response = await fetch(`/api/projects/${active.id}${path}`, {
       ...init,
-      headers: { ...(init.body instanceof FormData ? {} : { 'content-type': 'application/json' }), 'x-project-token': this.projectToken, ...(init.headers ?? {}) },
+      headers: { ...(init.body === undefined || init.body instanceof FormData ? {} : { 'content-type': 'application/json' }), 'x-project-token': this.projectToken, ...(init.headers ?? {}) },
     });
     const data = response.status === 204 ? {} as T : await this.readJson(response) as T;
     if (!response.ok) throw new Error(data.error ?? `La solicitud falló (HTTP ${response.status}).`);

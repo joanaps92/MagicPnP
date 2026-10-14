@@ -40,6 +40,27 @@ npm run dev:web
 
 Abre `http://localhost:4200`. Angular reenvía `/api` a `http://127.0.0.1:3000` durante el desarrollo.
 
+## Aplicación de escritorio para Windows
+
+MagicPnP también puede ejecutarse como aplicación de escritorio. La ventana de Electron sirve Angular y arranca Fastify en un puerto aleatorio de `127.0.0.1`; el XML, las imágenes y el PDF se procesan en el mismo PC. Al descargar un PDF o el reporte, la aplicación pregunta dónde guardarlo. Al cerrar la aplicación se borra el proyecto temporal de memoria.
+
+Quien use el instalador no necesita instalar Node.js.
+
+Para abrir la aplicación durante el desarrollo:
+
+```sh
+npm run desktop:dev
+```
+
+Para crear el instalador de Windows x64 desde Windows con Node.js 24:
+
+```sh
+npm ci
+npm run desktop:build:win
+```
+
+El instalador `.exe` aparecerá en `release/`. Cada push que cambie el código de la app dispara el workflow **Windows desktop build** en GitHub Actions; el instalador queda disponible como artefacto descargable. También se puede ejecutar manualmente desde la pestaña Actions. El instalador no está firmado, por lo que Windows puede mostrar su aviso habitual de editor desconocido.
+
 La descarga desde Drive es opcional. Para habilitar el intento de descarga de imágenes públicas, configura `GOOGLE_DRIVE_API_KEY` **solo en el servidor** antes de iniciar la API:
 
 ```sh
@@ -85,7 +106,7 @@ El PDF mantiene el color RGB; no se etiqueta como CMYK. La imprenta puede conver
 - `GET /api/projects/:id/export/:exportId` y `/report` — descargar PDF y reporte.
 - `DELETE /api/projects/:id` — borrar el proyecto.
 
-El XML está limitado a 2 MiB y 10.000 slots; cada imagen, a 25 MiB y 25 megapíxeles; cada proyecto, a 1 GiB de imágenes; todos los proyectos temporales, a 2 GiB; y cada PDF, a 1.000 posiciones y 250 MiB, con una exportación temporal activa por proyecto y 500 MiB para todos los PDF. `MAX_PROJECT_IMAGE_MIB` y `MAX_TOTAL_IMAGE_MIB` permiten ajustar los dos límites de imágenes en MiB (por defecto, 1024 y 2048). Como las imágenes se conservan en memoria, configura esos topes de acuerdo con la RAM disponible en el servidor. Hay un máximo de 10 proyectos activos y 1.000 imágenes por trabajo de descarga. El servidor limita importaciones por IP. Las imágenes se analizan y decodifican; las peticiones remotas solo pueden dirigirse a Google Drive y hosts permitidos de Google, con redirecciones limitadas. No se aceptan URLs arbitrarias del XML.
+El XML está limitado a 2 MiB y 10.000 slots; cada imagen, a 25 MiB y 25 megapíxeles; cada proyecto, a 1 GiB de imágenes; todos los proyectos temporales, a 2 GiB; y cada PDF, a 1.000 posiciones y 1 GiB, con una exportación temporal activa por proyecto y 2 GiB para todos los PDF. `MAX_PROJECT_IMAGE_MIB`, `MAX_TOTAL_IMAGE_MIB`, `MAX_EXPORT_MIB` y `MAX_TOTAL_EXPORT_MIB` permiten ajustar esos topes en MiB (por defecto, 1024, 2048, 1024 y 2048). Las imágenes y los PDF se conservan en memoria, así que configura los límites según la RAM disponible en el servidor. Hay un máximo de 10 proyectos activos y 1.000 imágenes por trabajo de descarga. El servidor limita importaciones por IP. Las imágenes se analizan y decodifican; las peticiones remotas solo pueden dirigirse a Google Drive y hosts permitidos de Google, con redirecciones limitadas. No se aceptan URLs arbitrarias del XML.
 
 El proxy de despliegue debe reemplazar `X-Forwarded-For` con la IP real antes de activar `TRUST_PROXY=1` en la API. `compose.yaml` ya define esa cabecera en Nginx.
 

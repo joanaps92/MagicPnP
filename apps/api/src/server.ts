@@ -3,7 +3,9 @@ import multipart from '@fastify/multipart';
 import sharp from 'sharp';
 import { PDFDocument, rgb, clip, endPath, popGraphicsState, pushGraphicsState, rectangle } from 'pdf-lib';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { resolve } from 'node:path';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { extname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
@@ -25,8 +27,8 @@ function configuredMebibytes(name: string, fallback: number): number {
 const MAX_PROJECT_IMAGE_BYTES = configuredMebibytes('MAX_PROJECT_IMAGE_MIB', 1024);
 const MAX_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTAL_IMAGE_BYTES = configuredMebibytes('MAX_TOTAL_IMAGE_MIB', 2048);
-const MAX_EXPORT_BYTES = 250 * 1024 * 1024;
-const MAX_TOTAL_EXPORT_BYTES = 500 * 1024 * 1024;
+const MAX_EXPORT_BYTES = configuredMebibytes('MAX_EXPORT_MIB', 1_024);
+const MAX_TOTAL_EXPORT_BYTES = configuredMebibytes('MAX_TOTAL_EXPORT_MIB', 2_048);
 const MAX_CARDS_PER_EXPORT = 1_000;
 const MAX_DRIVE_ASSETS_PER_JOB = 1_000;
 const PROJECT_TTL_MS = 2 * 60 * 60 * 1000;
@@ -627,10 +629,17 @@ app.post('/api/projects/:projectId/export', async (request, reply) => {
   project.exportInProgress = true;
   try {
     const artifact = await createPdf(project, body?.allowLowResolution === true);
-    if (artifact.buffer.byteLength > MAX_EXPORT_BYTES) return reply.code(413).send({ error: 'El PDF supera el límite temporal de 250 MiB.' });
+    if (artifact.buffer.byteLength > MAX_EXPORT_BYTES) {
+      const exportMiB = Math.ceil(artifact.buffer.byteLength / MEBIBYTE);
+      const limitMiB = Math.floor(MAX_EXPORT_BYTES / MEBIBYTE);
+      return reply.code(413).send({ error: `El PDF generado ocupa ${exportMiB} MiB y supera el límite temporal de ${limitMiB} MiB.` });
+    }
     const previousBytes = [...project.exports.values()].reduce((sum, item) => sum + item.buffer.byteLength, 0);
     const totalExportBytes = [...projects.values()].reduce((sum, candidate) => sum + [...candidate.exports.values()].reduce((inner, item) => inner + item.buffer.byteLength, 0), 0);
-    if (totalExportBytes - previousBytes + artifact.buffer.byteLength > MAX_TOTAL_EXPORT_BYTES) return reply.code(429).send({ error: 'El almacenamiento temporal de PDF está ocupado. Descarga y elimina los proyectos activos antes de reintentar.' });
+    if (totalExportBytes - previousBytes + artifact.buffer.byteLength > MAX_TOTAL_EXPORT_BYTES) {
+      const limitMiB = Math.floor(MAX_TOTAL_EXPORT_BYTES / MEBIBYTE);
+      return reply.code(429).send({ error: `El almacenamiento temporal de PDF supera el límite total de ${limitMiB} MiB. Descarga y elimina los proyectos activos antes de reintentar.` });
+    }
     project.exports.clear();
     const exportId = randomUUID();
     project.exports.set(exportId, { ...artifact, createdAt: Date.now() });
@@ -670,6 +679,59 @@ app.setErrorHandler((error, request, reply) => {
 
 const port = Number(process.env.PORT ?? 3000);
 export { app };
+
+const desktopMimeTypes: Record<string, string> = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.ico': 'image/x-icon',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.webmanifest': 'application/manifest+json',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+};
+
+export async function startDesktopServer(webRoot: string): Promise<string> {
+  const root = resolve(webRoot);
+  const indexFile = resolve(root, 'index.html');
+
+  app.setNotFoundHandler(async (request, reply) => {
+    const pathname = new URL(request.raw.url ?? '/', 'http://127.0.0.1').pathname;
+    if (pathname === '/api' || pathname.startsWith('/api/')) {
+      return reply.code(404).send({ error: 'Ruta API no encontrada.' });
+    }
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      return reply.code(404).send({ error: 'No se encontró el recurso.' });
+    }
+
+    let decodedPath: string;
+    try {
+      decodedPath = decodeURIComponent(pathname);
+    } catch {
+      return reply.code(400).send({ error: 'Ruta de archivo no válida.' });
+    }
+    const requestedFile = resolve(root, `.${decodedPath}`);
+    const requestedRelativePath = relative(root, requestedFile);
+    if (requestedRelativePath === '..' || requestedRelativePath.startsWith(`..${sep}`) || isAbsolute(requestedRelativePath)) {
+      return reply.code(400).send({ error: 'Ruta de archivo no válida.' });
+    }
+
+    let file = indexFile;
+    try {
+      if ((await stat(requestedFile)).isFile()) file = requestedFile;
+    } catch {
+      // Las rutas de Angular que no son archivos se resuelven con index.html.
+    }
+    return reply.type(desktopMimeTypes[extname(file).toLowerCase()] ?? 'application/octet-stream')
+      .header('cache-control', file === indexFile ? 'no-cache' : 'public, max-age=3600')
+      .send(createReadStream(file));
+  });
+
+  return app.listen({ host: '127.0.0.1', port: 0 });
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   await app.listen({ port, host: process.env.HOST ?? '0.0.0.0' });
 }

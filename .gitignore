@@ -1,7 +1,9 @@
 node_modules/
 .angular/
-dist/
+/dist/
+**/dist/
 out-tsc/
+release/
 coverage/
 .env
 .env.*
