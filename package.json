@@ -72,10 +72,7 @@
         "to": "web"
       }
     ],
-    "asar": true,
-    "asarUnpack": [
-      "node_modules/@esbuild/**"
-    ],
+    "asar": false,
     "win": {
       "target": [
         {
